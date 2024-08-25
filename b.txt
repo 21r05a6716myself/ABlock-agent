@@ -1,0 +1,205 @@
+#include <Uefi.h>
+#include <Library/UefiBootServicesTableLib.h>
+#include <Library/UefiLib.h>
+#include <Library/DebugLib.h>
+#include <Library/BaseMemoryLib.h>
+#include <Protocol/LoadedImage.h>
+#include <Protocol/DiskIo.h>
+#include <Guid/FileInfo.h>
+#include <IndustryStandard/IndustryStandard.h>
+
+// Function prototypes
+EFI_STATUS EFIAPI UefiMain(IN EFI_HANDLE ImageHandle, IN EFI_SYSTEM_TABLE *SystemTable);
+VOID CheckForUnauthorizedFormat(VOID);
+VOID TriggerProtectiveAction(VOID);
+BOOLEAN IsSystemFormatDetected(VOID);
+VOID LogAction(CHAR16 *Message);
+
+// Entry point of the UEFI driver
+EFI_STATUS EFIAPI UefiMain(IN EFI_HANDLE ImageHandle, IN EFI_SYSTEM_TABLE *SystemTable) {
+    EFI_STATUS Status;
+    EFI_LOADED_IMAGE_PROTOCOL *LoadedImage;
+    
+    // Retrieve the loaded image protocol
+    Status = SystemTable->BootServices->HandleProtocol(ImageHandle, &gEfiLoadedImageProtocolGuid, (VOID **)&LoadedImage);
+    if (EFI_ERROR(Status)) {
+        LogAction(L"Failed to retrieve LoadedImage Protocol.");
+        return Status;
+    }
+
+    // Check for unauthorized formats
+    CheckForUnauthorizedFormat();
+
+    // Main loop or event-based handling (replace with actual implementation if needed)
+    while (TRUE) {
+        // Example: Use periodic checks or event-based triggers
+        // Sleep or wait for an event
+        gBS->Stall(1000000); // Stall for 1 second for demonstration
+        CheckForUnauthorizedFormat();
+    }
+
+    return EFI_SUCCESS;
+}
+
+// Function to check for unauthorized system formats
+VOID CheckForUnauthorizedFormat(VOID) {
+    if (IsSystemFormatDetected()) {
+        TriggerProtectiveAction();
+    }
+}
+
+// Function to check if the system format is detected
+BOOLEAN IsSystemFormatDetected(VOID) {
+    // Example implementation: Check for presence of a specific file or marker
+    EFI_STATUS Status;
+    EFI_FILE_IO_INTERFACE *FileIo;
+    EFI_FILE_HANDLE RootDir;
+    EFI_FILE_HANDLE File;
+    EFI_SIMPLE_FILE_SYSTEM_PROTOCOL *FileSystem;
+    CHAR16 *FileName = L"secure_marker.txt"; // Example marker file
+
+    // Locate the file system protocol
+    Status = gBS->LocateProtocol(&gEfiSimpleFileSystemProtocolGuid, NULL, (VOID **)&FileSystem);
+    if (EFI_ERROR(Status)) {
+        LogAction(L"Failed to locate FileSystem Protocol.");
+        return FALSE;
+    }
+
+    // Open the file system and root directory
+    Status = FileSystem->OpenVolume(FileSystem, &RootDir);
+    if (EFI_ERROR(Status)) {
+        LogAction(L"Failed to open root directory.");
+        return FALSE;
+    }
+
+    // Attempt to open the marker file
+    Status = RootDir->Open(RootDir, &File, FileName, EFI_FILE_MODE_READ, 0);
+    if (EFI_ERROR(Status)) {
+        // File not found or access denied
+        return TRUE; // Indicating unauthorized format detected
+    }
+
+    // Clean up
+    File->Close(File);
+    RootDir->Close(RootDir);
+
+    return FALSE; // Marker file found, no format detected
+}
+
+// Function to trigger protective actions
+VOID TriggerProtectiveAction(VOID) {
+    // Example protective actions: log a message, shutdown, etc.
+    LogAction(L"Unauthorized system format detected! Taking protective action.");
+
+    // Additional actions such as shutting down or locking the system can be implemented here.
+    // For example, force a shutdown (note: may require platform-specific methods):
+    // gBS->ExitBootServices(ImageHandle, 0);
+}
+
+// Function to log actions
+VOID LogAction(CHAR16 *Message) {
+    // Example implementation: Log message to a console or debug output
+    DEBUG((DEBUG_ERROR, "%s\n", Message));
+}
+
+Prerequisites
+UEFI Development Kit (EDK II): You need EDK II to develop UEFI applications.
+UEFI Firmware Development Knowledge: Familiarity with UEFI and low-level programming.
+
+Running UEFI firmware code involves several steps and requires a specialized development environment. Here’s a step-by-step guide to compile and test UEFI code:
+
+### 1. **Set Up Development Environment**
+
+You’ll need to set up the UEFI development environment using the **EDK II (UEFI Development Kit)**. Follow these steps to get started:
+
+#### **Install EDK II**
+
+1. **Download EDK II**: Clone the EDK II repository from GitHub.
+
+   ```bash
+   git clone https://github.com/tianocore/edk2.git
+   ```
+
+2. **Set Up EDK II Environment**: Follow the instructions provided in the [EDK II documentation](https://github.com/tianocore/edk2/blob/master/Documentation/Getting_Started.md) to set up your development environment. This typically involves setting environment variables and installing necessary tools.
+
+#### **Install Required Tools**
+
+- **Build Tools**: Ensure you have build tools like `build`, `python`, and others as required by EDK II.
+
+   ```bash
+   sudo apt-get install build-essential gcc python3
+   ```
+
+### 2. **Create a New UEFI Project**
+
+1. **Create a Directory for Your Project**: Inside the `edk2` directory, create a new directory for your project.
+
+   ```bash
+   mkdir MyUefiProject
+   cd MyUefiProject
+   ```
+
+2. **Create a New UEFI Application**: Set up a new UEFI application following the EDK II sample projects.
+
+   - Create the required directory structure:
+
+     ```bash
+     mkdir -p MyUefiApp/Source
+     ```
+
+   - Create a `.c` file (e.g., `MyUefiApp.c`) in the `Source` directory with the UEFI driver code provided earlier.
+
+   - Create a `*.inf` file to define the UEFI application. For example, `MyUefiApp.inf`:
+
+     ```ini
+     [Defines]
+     INF_VERSION = 0x00010005
+     BASE_NAME = MyUefiApp
+     FILE_GUID = 12345678-1234-1234-1234-1234567890AB
+     MODULE_TYPE = UEFI_APPLICATION
+     VERSION_STRING = 1.0
+     ENTRY_POINT = UefiMain
+
+     [Sources]
+     MyUefiApp.c
+     ```
+
+### 3. **Compile the UEFI Application**
+
+1. **Build the Project**: Navigate to the root of your EDK II environment and run the build command. You need to specify your project and the platform you are targeting. For example:
+
+   ```bash
+   build -a X64 -t GCC5 -p MyUefiProject/MyUefiProject.dsc
+   ```
+
+   - `-a X64`: Specifies the architecture (x64).
+   - `-t GCC5`: Specifies the toolchain (GCC 5).
+   - `-p MyUefiProject/MyUefiProject.dsc`: Path to your DSC file (description file for the build).
+
+2. **Generate the `.efi` File**: The output should be a `.efi` file located in your build output directory.
+
+### 4. **Test the UEFI Application**
+
+1. **Use a Virtual Machine**: It’s safest to test UEFI code in a virtual machine with UEFI support (e.g., QEMU).
+
+   ```bash
+   qemu-system-x86_64 -bios /path/to/OVMF.fd -drive file=MyDisk.img,format=qcow2
+   ```
+
+   - `-bios /path/to/OVMF.fd`: Path to the UEFI firmware (OVMF).
+   - `-drive file=MyDisk.img,format=qcow2`: Path to your virtual disk image.
+
+2. **Use Physical Hardware**: If you want to test on physical hardware, you'll need to:
+
+   - **Prepare a Bootable USB Drive**: Copy the `.efi` file to a USB drive.
+   - **Update the Firmware**: Ensure the firmware is configured to allow booting from the USB drive.
+   - **Boot the System**: Insert the USB drive and reboot the system to test the UEFI application.
+
+### 5. **Debugging and Validation**
+
+- **Debug Output**: Use serial output or debug logs to monitor the application’s behavior.
+- **UEFI Shell**: Use the UEFI shell for running and testing UEFI applications directly.
+
+### Summary
+
+Running UEFI code involves setting up the EDK II environment, creating a UEFI application, compiling it, and then testing it either in a virtual machine or on physical hardware. This process requires familiarity with UEFI development tools and practices. Ensure to test thoroughly to avoid system issues, especially when working with firmware and low-level system components.
